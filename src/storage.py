@@ -12,6 +12,10 @@ DATA_DIR = Path.home() / ".cyberstudy"
 DATA_FILE = DATA_DIR / "data.json"
 
 
+def get_data_path() -> Path:
+    return DATA_FILE
+
+
 def _serialize_date(value: date) -> str:
     return value.isoformat()
 

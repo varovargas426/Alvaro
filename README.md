@@ -25,10 +25,27 @@ pip install -r requirements.txt
 python -m src.main
 ```
 
+## ChatGPT setup
+To enable ChatGPT features (summaries, glossary, quizzes), set your OpenAI API key:
+```bash
+setx OPENAI_API_KEY "your-api-key"
+```
+Optionally, override the model:
+```bash
+setx OPENAI_MODEL "gpt-4o-mini"
+```
+Restart your terminal or VS Code after setting environment variables.
+
 ## Troubleshooting
 - **Error: "Import 'requests' could not be resolved" in VS Code**
   - Activate the virtual environment and select the `./.venv` interpreter in VS Code (Ctrl+Shift+P → *Python: Select Interpreter*).
   - Make sure to run `pip install -r requirements.txt` inside the virtual environment.
+ - **Web search does not return results**
+  - Some networks block Wikipedia. Try a different network or check your firewall/proxy settings.
+  - Make sure you can open https://en.wikipedia.org in a browser.
+ - **ChatGPT buttons show errors**
+  - Confirm `OPENAI_API_KEY` is set and that your key has API access.
+  - Verify you are online and the OpenAI status page is healthy.
 
 ## Notes
 - Data is stored in `~/.cyberstudy/data.json`.

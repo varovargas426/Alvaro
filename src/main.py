@@ -1,18 +1,20 @@
 from __future__ import annotations
 
+import json
 import re
 from collections import Counter
-from datetime import date
 from textwrap import shorten
 from typing import List
 
 import requests
 from PySide6 import QtCore, QtWidgets
 
-from .models import CalendarEntry, DictionaryEntry, Note, QuizQuestion, StudyData
-from .storage import load_data, save_data
+from .ai import dictionary_from_notes, has_openai_key, quiz_from_notes, summarize_with_ai
+from .models import CalendarEntry, Note, QuizQuestion, StudyData
+from .storage import get_data_path, load_data, save_data
 
 SUMMARY_MAX_SENTENCES = 3
+DEFAULT_REQUEST_TIMEOUT = 10
 
 
 def summarize_text(text: str) -> str:
@@ -47,7 +49,7 @@ def search_wikipedia(query: str) -> str:
         return ""
     response = requests.get(
         "https://en.wikipedia.org/api/rest_v1/page/summary/" + requests.utils.quote(query),
-        timeout=10,
+        timeout=DEFAULT_REQUEST_TIMEOUT,
     )
     if response.status_code != 200:
         return "No information found on Wikipedia."
@@ -70,6 +72,13 @@ class CyberStudyApp(QtWidgets.QMainWindow):
         tabs.addTab(self._build_web_tab(), "Web")
         self.setCentralWidget(tabs)
 
+        if not has_openai_key():
+            data_path = get_data_path()
+            self.statusBar().showMessage(
+                "Set OPENAI_API_KEY to enable ChatGPT features (summaries, glossary, quizzes)."
+                f" Data is stored in {data_path}."
+            )
+
     def _build_notes_tab(self) -> QtWidgets.QWidget:
         widget = QtWidgets.QWidget()
         layout = QtWidgets.QVBoxLayout(widget)
@@ -86,8 +95,11 @@ class CyberStudyApp(QtWidgets.QMainWindow):
         save_btn.clicked.connect(self._save_note)
         summary_btn = QtWidgets.QPushButton("Generate summary")
         summary_btn.clicked.connect(self._generate_summary)
+        ai_summary_btn = QtWidgets.QPushButton("Summarize with ChatGPT")
+        ai_summary_btn.clicked.connect(self._generate_ai_summary)
         button_row.addWidget(save_btn)
         button_row.addWidget(summary_btn)
+        button_row.addWidget(ai_summary_btn)
         layout.addLayout(button_row)
 
         self.summary_label = QtWidgets.QLabel("Summary: (empty)")
@@ -104,16 +116,16 @@ class CyberStudyApp(QtWidgets.QMainWindow):
         widget = QtWidgets.QWidget()
         layout = QtWidgets.QVBoxLayout(widget)
 
-        form = QtWidgets.QFormLayout()
-        self.dict_term = QtWidgets.QLineEdit()
-        self.dict_definition = QtWidgets.QTextEdit()
-        form.addRow("Term:", self.dict_term)
-        form.addRow("Definition:", self.dict_definition)
-        layout.addLayout(form)
+        helper = QtWidgets.QLabel(
+            "Glossary terms are generated automatically from your notes."
+            " Click the button below to refresh."
+        )
+        helper.setWordWrap(True)
+        layout.addWidget(helper)
 
-        save_btn = QtWidgets.QPushButton("Save term")
-        save_btn.clicked.connect(self._save_dictionary_entry)
-        layout.addWidget(save_btn)
+        generate_btn = QtWidgets.QPushButton("Generate glossary from notes")
+        generate_btn.clicked.connect(self._generate_dictionary)
+        layout.addWidget(generate_btn)
 
         self.dict_list = QtWidgets.QListWidget()
         self._refresh_dictionary_list()
@@ -154,6 +166,10 @@ class CyberStudyApp(QtWidgets.QMainWindow):
         generate_btn.clicked.connect(self._generate_quiz)
         layout.addWidget(generate_btn)
 
+        ai_generate_btn = QtWidgets.QPushButton("Generate quiz with ChatGPT")
+        ai_generate_btn.clicked.connect(self._generate_ai_quiz)
+        layout.addWidget(ai_generate_btn)
+
         self.quiz_list = QtWidgets.QListWidget()
         self._refresh_quiz_list()
         layout.addWidget(self.quiz_list)
@@ -172,6 +188,10 @@ class CyberStudyApp(QtWidgets.QMainWindow):
         form.addWidget(self.web_query)
         form.addWidget(search_btn)
         layout.addLayout(form)
+
+        self.web_status = QtWidgets.QLabel("")
+        self.web_status.setWordWrap(True)
+        layout.addWidget(self.web_status)
 
         self.web_result = QtWidgets.QTextEdit()
         self.web_result.setReadOnly(True)
@@ -201,16 +221,50 @@ class CyberStudyApp(QtWidgets.QMainWindow):
         summary = summarize_text(content)
         self.summary_label.setText(f"Summary: {summary}")
 
-    def _save_dictionary_entry(self) -> None:
-        term = self.dict_term.text().strip()
-        definition = self.dict_definition.toPlainText().strip()
-        if not term or not definition:
-            QtWidgets.QMessageBox.warning(self, "Missing information", "Enter a term and definition.")
+    def _generate_ai_summary(self) -> None:
+        content = self.note_content.toPlainText().strip()
+        if not content:
+            QtWidgets.QMessageBox.information(self, "No content", "Add text to summarize.")
             return
-        self.data.dictionary.append(DictionaryEntry(term=term, definition=definition))
+        if not has_openai_key():
+            QtWidgets.QMessageBox.warning(
+                self,
+                "Missing OpenAI key",
+                "Set OPENAI_API_KEY in your environment to use ChatGPT summaries.",
+            )
+            return
+        try:
+            summary = summarize_with_ai(content)
+        except requests.RequestException:
+            summary = "ChatGPT request failed. Check your internet connection."
+        except (RuntimeError, ValueError, KeyError):
+            summary = "ChatGPT response could not be processed."
+        self.summary_label.setText(f"Summary: {summary}")
+
+    def _generate_dictionary(self) -> None:
+        if not self.data.notes:
+            QtWidgets.QMessageBox.information(self, "No notes", "Add notes before generating a glossary.")
+            return
+        if not has_openai_key():
+            QtWidgets.QMessageBox.warning(
+                self,
+                "Missing OpenAI key",
+                "Set OPENAI_API_KEY in your environment to use ChatGPT glossary generation.",
+            )
+            return
+        try:
+            self.data.dictionary = dictionary_from_notes(self.data.notes)
+        except requests.RequestException:
+            QtWidgets.QMessageBox.warning(
+                self, "Connection error", "ChatGPT request failed. Check your internet connection."
+            )
+            return
+        except (RuntimeError, ValueError, KeyError, json.JSONDecodeError):
+            QtWidgets.QMessageBox.warning(
+                self, "Parse error", "ChatGPT response could not be processed."
+            )
+            return
         save_data(self.data)
-        self.dict_term.clear()
-        self.dict_definition.clear()
         self._refresh_dictionary_list()
 
     def _save_calendar_entry(self) -> None:
@@ -231,16 +285,51 @@ class CyberStudyApp(QtWidgets.QMainWindow):
         save_data(self.data)
         self._refresh_quiz_list()
 
+    def _generate_ai_quiz(self) -> None:
+        if not self.data.notes:
+            QtWidgets.QMessageBox.information(self, "No notes", "Add notes before generating a quiz.")
+            return
+        if not has_openai_key():
+            QtWidgets.QMessageBox.warning(
+                self,
+                "Missing OpenAI key",
+                "Set OPENAI_API_KEY in your environment to use ChatGPT quizzes.",
+            )
+            return
+        try:
+            self.data.quizzes = quiz_from_notes(self.data.notes)
+        except requests.RequestException:
+            QtWidgets.QMessageBox.warning(
+                self, "Connection error", "ChatGPT request failed. Check your internet connection."
+            )
+            return
+        except (RuntimeError, ValueError, KeyError, json.JSONDecodeError):
+            QtWidgets.QMessageBox.warning(
+                self, "Parse error", "ChatGPT response could not be processed."
+            )
+            return
+        save_data(self.data)
+        self._refresh_quiz_list()
+
     def _search_web(self) -> None:
         query = self.web_query.text().strip()
         if not query:
             return
         self.web_result.setPlainText("Searching…")
+        self.web_status.setText("Checking connectivity…")
+        try:
+            requests.get("https://www.google.com", timeout=DEFAULT_REQUEST_TIMEOUT)
+            self.web_status.setText("Online. Fetching Wikipedia summary.")
+        except requests.RequestException:
+            self.web_status.setText(
+                "Network check failed. Wikipedia lookup may not work. Check firewall/proxy."
+            )
         try:
             result = search_wikipedia(query)
         except requests.RequestException:
             result = "Connection error. Check your internet connection."
         self.web_result.setPlainText(result)
+        self.web_status.setText("Done.")
 
     def _refresh_notes_list(self) -> None:
         self.notes_list.clear()
@@ -254,6 +343,9 @@ class CyberStudyApp(QtWidgets.QMainWindow):
             preview = shorten(entry.definition, width=80, placeholder="…")
             self.dict_list.addItem(f"{entry.term}: {preview}")
 
+        if not self.data.dictionary:
+            self.dict_list.addItem("No glossary terms yet.")
+
     def _refresh_calendar_list(self) -> None:
         self.calendar_list.clear()
         for entry in sorted(self.data.calendar, key=lambda item: item.day):
@@ -264,6 +356,9 @@ class CyberStudyApp(QtWidgets.QMainWindow):
         self.quiz_list.clear()
         for quiz in self.data.quizzes:
             self.quiz_list.addItem(f"{quiz.prompt} | Answer: {quiz.answer}")
+
+        if not self.data.quizzes:
+            self.quiz_list.addItem("No quiz questions yet.")
 
 
 if __name__ == "__main__":
