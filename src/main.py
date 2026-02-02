@@ -9,7 +9,7 @@ from typing import List
 import requests
 from PySide6 import QtCore, QtWidgets
 
-from .ai import dictionary_from_notes, has_openai_key, quiz_from_notes, summarize_with_ai
+from .ai import dictionary_from_notes, generate_text, has_openai_key, quiz_from_notes, summarize_with_ai
 from .models import CalendarEntry, Note, QuizQuestion, StudyData
 from .storage import get_data_path, load_data, save_data
 
@@ -97,14 +97,22 @@ class CyberStudyApp(QtWidgets.QMainWindow):
         summary_btn.clicked.connect(self._generate_summary)
         ai_summary_btn = QtWidgets.QPushButton("Summarize with ChatGPT")
         ai_summary_btn.clicked.connect(self._generate_ai_summary)
+        ai_text_btn = QtWidgets.QPushButton("Generate haiku with ChatGPT")
+        ai_text_btn.clicked.connect(self._generate_ai_text)
         button_row.addWidget(save_btn)
         button_row.addWidget(summary_btn)
         button_row.addWidget(ai_summary_btn)
+        button_row.addWidget(ai_text_btn)
         layout.addLayout(button_row)
 
         self.summary_label = QtWidgets.QLabel("Summary: (empty)")
         self.summary_label.setWordWrap(True)
         layout.addWidget(self.summary_label)
+
+        self.ai_text_output = QtWidgets.QTextEdit()
+        self.ai_text_output.setReadOnly(True)
+        self.ai_text_output.setPlaceholderText("ChatGPT output will appear here.")
+        layout.addWidget(self.ai_text_output)
 
         self.notes_list = QtWidgets.QListWidget()
         self._refresh_notes_list()
@@ -240,6 +248,22 @@ class CyberStudyApp(QtWidgets.QMainWindow):
         except (RuntimeError, ValueError, KeyError):
             summary = "ChatGPT response could not be processed."
         self.summary_label.setText(f"Summary: {summary}")
+
+    def _generate_ai_text(self) -> None:
+        if not has_openai_key():
+            QtWidgets.QMessageBox.warning(
+                self,
+                "Missing OpenAI key",
+                "Set OPENAI_API_KEY in your environment to use ChatGPT text generation.",
+            )
+            return
+        try:
+            text = generate_text("Write a haiku about cybersecurity.")
+        except requests.RequestException:
+            text = "ChatGPT request failed. Check your internet connection."
+        except (RuntimeError, ValueError, KeyError):
+            text = "ChatGPT response could not be processed."
+        self.ai_text_output.setPlainText(text)
 
     def _generate_dictionary(self) -> None:
         if not self.data.notes:

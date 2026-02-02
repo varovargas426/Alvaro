@@ -6,7 +6,7 @@ from datetime import date
 from pathlib import Path
 from typing import Any, Dict
 
-from .models import CalendarEntry, DictionaryEntry, Note, QuizQuestion, StudyData
+from ..models import CalendarEntry, DictionaryEntry, Note, QuizQuestion, StudyData
 
 DATA_DIR = Path.home() / ".cyberstudy"
 DATA_FILE = DATA_DIR / "data.json"

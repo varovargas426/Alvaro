@@ -26,14 +26,11 @@ python -m src.main
 ```
 
 ## ChatGPT setup
-To enable ChatGPT features (summaries, glossary, quizzes), set your OpenAI API key:
+To enable ChatGPT features (summaries, glossary, quizzes, haiku generation), set your OpenAI API key:
 ```bash
 setx OPENAI_API_KEY "your-api-key"
 ```
-Optionally, override the model:
-```bash
-setx OPENAI_MODEL "gpt-4o-mini"
-```
+The app uses the `gpt-5-nano` model via the OpenAI Responses API.
 Restart your terminal or VS Code after setting environment variables.
 
 ## Troubleshooting
