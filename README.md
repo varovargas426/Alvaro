@@ -1,35 +1,35 @@
 # CyberStudy Coach
 
-Aplicación de escritorio (Windows) para estudiar ciberseguridad con notas, resúmenes, diccionario, calendario y quizzes.
+Desktop application (Windows) for studying cybersecurity with notes, summaries, a dictionary, a calendar, and quizzes.
 
-## Funcionalidades
-- **Notas y resúmenes**: pega tus notas, guarda, y genera un resumen automático.
-- **Diccionario**: almacena vocabulario técnico y definiciones.
-- **Calendario**: agenda sesiones, tareas y recordatorios.
-- **Quizzes**: genera preguntas a partir de tus notas.
-- **Investigación web**: consulta rápidamente información en línea (Wikipedia como fuente base).
+## Features
+- **Notes and summaries**: paste your notes, save them, and generate an automatic summary.
+- **Dictionary**: store technical vocabulary and definitions.
+- **Calendar**: schedule study sessions, tasks, and reminders.
+- **Quizzes**: generate questions from your notes.
+- **Web research**: quickly look up information online (Wikipedia as the base source).
 
-## Requisitos
+## Requirements
 - Python 3.11+
-- Windows 10/11 (funciona también en macOS/Linux)
+- Windows 10/11 (also works on macOS/Linux)
 
-## Instalación
+## Installation
 ```bash
 python -m venv .venv
 .\.venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-## Ejecución
+## Run
 ```bash
 python -m src.main
 ```
 
-## Solución de problemas
-- **Error: "Import 'requests' could not be resolved" en VS Code**
-  - Activa el entorno virtual y selecciona el intérprete de `./.venv` en VS Code (Ctrl+Shift+P → *Python: Select Interpreter*).
-  - Asegúrate de ejecutar `pip install -r requirements.txt` dentro del entorno virtual.
+## Troubleshooting
+- **Error: "Import 'requests' could not be resolved" in VS Code**
+  - Activate the virtual environment and select the `./.venv` interpreter in VS Code (Ctrl+Shift+P → *Python: Select Interpreter*).
+  - Make sure to run `pip install -r requirements.txt` inside the virtual environment.
 
-## Notas
-- Los datos se almacenan en `~/.cyberstudy/data.json`.
-- La integración de IA está preparada para conectarse a un proveedor (por ejemplo, OpenAI) mediante una clave de API en el futuro.
+## Notes
+- Data is stored in `~/.cyberstudy/data.json`.
+- The AI integration is prepared to connect to a provider (for example, OpenAI) via an API key in the future.

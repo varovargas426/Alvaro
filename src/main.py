@@ -25,8 +25,8 @@ def summarize_text(text: str) -> str:
 
 
 def extract_keywords(text: str, limit: int = 8) -> List[str]:
-    tokens = re.findall(r"[A-Za-zÁÉÍÓÚÜÑáéíóúüñ0-9_-]{4,}", text.lower())
-    stopwords = {"para", "como", "pero", "este", "esta", "este", "esta", "porque", "sobre", "entre"}
+    tokens = re.findall(r"[A-Za-z0-9_-]{4,}", text.lower())
+    stopwords = {"this", "that", "with", "from", "have", "your", "into", "about", "between"}
     filtered = [token for token in tokens if token not in stopwords]
     return [word for word, _ in Counter(filtered).most_common(limit)]
 
@@ -36,8 +36,8 @@ def build_quiz_from_notes(notes: List[Note]) -> List[QuizQuestion]:
     for note in notes:
         keywords = extract_keywords(note.content, limit=4)
         for keyword in keywords:
-            prompt = f"¿Qué significa '{keyword}' en el contexto de {note.title}?"
-            answer = f"Revisa tus notas sobre {note.title} para definir '{keyword}'."
+            prompt = f"What does '{keyword}' mean in the context of {note.title}?"
+            answer = f"Review your notes about {note.title} to define '{keyword}'."
             questions.append(QuizQuestion(prompt=prompt, answer=answer))
     return questions
 
@@ -46,13 +46,13 @@ def search_wikipedia(query: str) -> str:
     if not query.strip():
         return ""
     response = requests.get(
-        "https://es.wikipedia.org/api/rest_v1/page/summary/" + requests.utils.quote(query),
+        "https://en.wikipedia.org/api/rest_v1/page/summary/" + requests.utils.quote(query),
         timeout=10,
     )
     if response.status_code != 200:
-        return "No se encontró información en Wikipedia."
+        return "No information found on Wikipedia."
     data = response.json()
-    return data.get("extract", "No se encontró información.")
+    return data.get("extract", "No information found.")
 
 
 class CyberStudyApp(QtWidgets.QMainWindow):
@@ -63,9 +63,9 @@ class CyberStudyApp(QtWidgets.QMainWindow):
         self.data = load_data()
 
         tabs = QtWidgets.QTabWidget()
-        tabs.addTab(self._build_notes_tab(), "Notas")
-        tabs.addTab(self._build_dictionary_tab(), "Diccionario")
-        tabs.addTab(self._build_calendar_tab(), "Calendario")
+        tabs.addTab(self._build_notes_tab(), "Notes")
+        tabs.addTab(self._build_dictionary_tab(), "Dictionary")
+        tabs.addTab(self._build_calendar_tab(), "Calendar")
         tabs.addTab(self._build_quiz_tab(), "Quizzes")
         tabs.addTab(self._build_web_tab(), "Web")
         self.setCentralWidget(tabs)
@@ -77,20 +77,20 @@ class CyberStudyApp(QtWidgets.QMainWindow):
         form = QtWidgets.QFormLayout()
         self.note_title = QtWidgets.QLineEdit()
         self.note_content = QtWidgets.QTextEdit()
-        form.addRow("Título:", self.note_title)
-        form.addRow("Contenido:", self.note_content)
+        form.addRow("Title:", self.note_title)
+        form.addRow("Content:", self.note_content)
         layout.addLayout(form)
 
         button_row = QtWidgets.QHBoxLayout()
-        save_btn = QtWidgets.QPushButton("Guardar nota")
+        save_btn = QtWidgets.QPushButton("Save note")
         save_btn.clicked.connect(self._save_note)
-        summary_btn = QtWidgets.QPushButton("Generar resumen")
+        summary_btn = QtWidgets.QPushButton("Generate summary")
         summary_btn.clicked.connect(self._generate_summary)
         button_row.addWidget(save_btn)
         button_row.addWidget(summary_btn)
         layout.addLayout(button_row)
 
-        self.summary_label = QtWidgets.QLabel("Resumen: (vacío)")
+        self.summary_label = QtWidgets.QLabel("Summary: (empty)")
         self.summary_label.setWordWrap(True)
         layout.addWidget(self.summary_label)
 
@@ -107,11 +107,11 @@ class CyberStudyApp(QtWidgets.QMainWindow):
         form = QtWidgets.QFormLayout()
         self.dict_term = QtWidgets.QLineEdit()
         self.dict_definition = QtWidgets.QTextEdit()
-        form.addRow("Término:", self.dict_term)
-        form.addRow("Definición:", self.dict_definition)
+        form.addRow("Term:", self.dict_term)
+        form.addRow("Definition:", self.dict_definition)
         layout.addLayout(form)
 
-        save_btn = QtWidgets.QPushButton("Guardar término")
+        save_btn = QtWidgets.QPushButton("Save term")
         save_btn.clicked.connect(self._save_dictionary_entry)
         layout.addWidget(save_btn)
 
@@ -131,12 +131,12 @@ class CyberStudyApp(QtWidgets.QMainWindow):
         self.calendar_date.setCalendarPopup(True)
         self.calendar_date.setDate(QtCore.QDate.currentDate())
         self.calendar_details = QtWidgets.QTextEdit()
-        form.addRow("Título:", self.calendar_title)
-        form.addRow("Fecha:", self.calendar_date)
-        form.addRow("Detalles:", self.calendar_details)
+        form.addRow("Title:", self.calendar_title)
+        form.addRow("Date:", self.calendar_date)
+        form.addRow("Details:", self.calendar_details)
         layout.addLayout(form)
 
-        save_btn = QtWidgets.QPushButton("Guardar evento")
+        save_btn = QtWidgets.QPushButton("Save event")
         save_btn.clicked.connect(self._save_calendar_entry)
         layout.addWidget(save_btn)
 
@@ -150,7 +150,7 @@ class CyberStudyApp(QtWidgets.QMainWindow):
         widget = QtWidgets.QWidget()
         layout = QtWidgets.QVBoxLayout(widget)
 
-        generate_btn = QtWidgets.QPushButton("Generar quiz desde notas")
+        generate_btn = QtWidgets.QPushButton("Generate quiz from notes")
         generate_btn.clicked.connect(self._generate_quiz)
         layout.addWidget(generate_btn)
 
@@ -166,8 +166,8 @@ class CyberStudyApp(QtWidgets.QMainWindow):
 
         form = QtWidgets.QHBoxLayout()
         self.web_query = QtWidgets.QLineEdit()
-        self.web_query.setPlaceholderText("Buscar en Wikipedia…")
-        search_btn = QtWidgets.QPushButton("Buscar")
+        self.web_query.setPlaceholderText("Search Wikipedia…")
+        search_btn = QtWidgets.QPushButton("Search")
         search_btn.clicked.connect(self._search_web)
         form.addWidget(self.web_query)
         form.addWidget(search_btn)
@@ -183,7 +183,7 @@ class CyberStudyApp(QtWidgets.QMainWindow):
         title = self.note_title.text().strip()
         content = self.note_content.toPlainText().strip()
         if not title or not content:
-            QtWidgets.QMessageBox.warning(self, "Falta información", "Completa título y contenido.")
+            QtWidgets.QMessageBox.warning(self, "Missing information", "Enter a title and content.")
             return
         summary = summarize_text(content)
         self.data.notes.append(Note(title=title, content=content, summary=summary))
@@ -191,21 +191,21 @@ class CyberStudyApp(QtWidgets.QMainWindow):
         self.note_title.clear()
         self.note_content.clear()
         self._refresh_notes_list()
-        self.summary_label.setText(f"Resumen: {summary}")
+        self.summary_label.setText(f"Summary: {summary}")
 
     def _generate_summary(self) -> None:
         content = self.note_content.toPlainText().strip()
         if not content:
-            QtWidgets.QMessageBox.information(self, "Sin contenido", "Agrega texto para resumir.")
+            QtWidgets.QMessageBox.information(self, "No content", "Add text to summarize.")
             return
         summary = summarize_text(content)
-        self.summary_label.setText(f"Resumen: {summary}")
+        self.summary_label.setText(f"Summary: {summary}")
 
     def _save_dictionary_entry(self) -> None:
         term = self.dict_term.text().strip()
         definition = self.dict_definition.toPlainText().strip()
         if not term or not definition:
-            QtWidgets.QMessageBox.warning(self, "Falta información", "Completa término y definición.")
+            QtWidgets.QMessageBox.warning(self, "Missing information", "Enter a term and definition.")
             return
         self.data.dictionary.append(DictionaryEntry(term=term, definition=definition))
         save_data(self.data)
@@ -216,7 +216,7 @@ class CyberStudyApp(QtWidgets.QMainWindow):
     def _save_calendar_entry(self) -> None:
         title = self.calendar_title.text().strip()
         if not title:
-            QtWidgets.QMessageBox.warning(self, "Falta información", "Agrega un título.")
+            QtWidgets.QMessageBox.warning(self, "Missing information", "Enter a title.")
             return
         day = self.calendar_date.date().toPython()
         details = self.calendar_details.toPlainText().strip()
@@ -235,11 +235,11 @@ class CyberStudyApp(QtWidgets.QMainWindow):
         query = self.web_query.text().strip()
         if not query:
             return
-        self.web_result.setPlainText("Buscando…")
+        self.web_result.setPlainText("Searching…")
         try:
             result = search_wikipedia(query)
         except requests.RequestException:
-            result = "Error de conexión. Revisa tu conexión a internet."
+            result = "Connection error. Check your internet connection."
         self.web_result.setPlainText(result)
 
     def _refresh_notes_list(self) -> None:
@@ -263,7 +263,7 @@ class CyberStudyApp(QtWidgets.QMainWindow):
     def _refresh_quiz_list(self) -> None:
         self.quiz_list.clear()
         for quiz in self.data.quizzes:
-            self.quiz_list.addItem(f"{quiz.prompt} | Respuesta: {quiz.answer}")
+            self.quiz_list.addItem(f"{quiz.prompt} | Answer: {quiz.answer}")
 
 
 if __name__ == "__main__":
